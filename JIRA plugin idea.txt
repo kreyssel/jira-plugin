@@ -20,13 +20,16 @@ perhaps add a tab to issue, listing related builds?
 JIRA Wiki formatting rules:
   http://localhost:90/secure/WikiRendererHelpAction.jspa?section=texteffects
 
-JIRA Support for Workflow Actions
+Execute Workflow Actions via Commit Comment
+  Idea: resolve/close jira issues with a commit comment
   - you can have multiple separated worflows in you jira installation
   	http://www.atlassian.com/software/jira/tour/workflow.jsp
-  - issues has binding to one workflow
-  - workflow steps has one or more transition actions to go to another workflow step
+  - a issue has a binding to one workflow
+  - workflow steps has one or more workflow actions for a transition to another workflow step
   - workflow actions can have role bindings
   - every workflow action has a unique id
-  - workflow actions has binded "actions fields" that be shown as a subscreen if you call the action
-  - this action fields can be optional or required
-   
+  - workflow actions have binded "actions fields" that be shown as a subscreen if you call the action
+  - this action fields can have validators, if a validator mark a field as error, the transition to the 
+    next workflow step cannot be reached 
+  - possible format for commit comment actions
+    http://confluence.atlassian.com/display/JIRASTUDIO/Actioning+Issues+via+Commit+Messages
