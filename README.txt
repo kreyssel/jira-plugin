@@ -98,7 +98,7 @@ Execute Workflow Actions via Commit Comment
     
     For non trivial workflows with required action fields:  how can i provide the values for it?
   
-  - In out favorite scm client, can we use commit comment templates to keep the notation.
+  - In our favorite scm client, can we use "commit comment templates" to keep the notation.
   
   - Error handling: 
     If any error occurred (workflow action not found, error on execute the action 
