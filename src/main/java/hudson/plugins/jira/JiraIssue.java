@@ -1,5 +1,8 @@
 package hudson.plugins.jira;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
+import org.apache.commons.lang.builder.ToStringStyle;
+
 import hudson.plugins.jira.soap.RemoteIssue;
 
 /**
@@ -24,13 +27,30 @@ public final class JiraIssue implements Comparable<JiraIssue> {
      */
     public final String title;
 
+    public final String status;
+    
+    public final String resolution;
+    
+    public final String action;
+    
+    public final String actionHint;
+    
     public JiraIssue(String id, String title) {
         this.id = id;
         this.title = title;
+        this.status = null;
+        this.resolution = null;
+        this.action = null;
+        this.actionHint = null;
     }
 
-    public JiraIssue(RemoteIssue issue) {
-        this(issue.getKey(),issue.getSummary());
+    public JiraIssue(RemoteIssue issue, String status, String resolution, String action, String actionHint) {
+        this.id = issue.getKey();
+        this.title =  issue.getSummary();
+        this.status = status;
+        this.resolution = resolution;
+        this.action = action;
+        this.actionHint = actionHint;
     }
 
     public int compareTo(JiraIssue that) {
@@ -60,5 +80,10 @@ public final class JiraIssue implements Comparable<JiraIssue> {
         } else if (!id.equals(other.id))
             return false;
         return true;
+    }
+    
+    @Override
+    public String toString() {
+       	return ToStringBuilder.reflectionToString(this, ToStringStyle.SIMPLE_STYLE);
     }
 }

@@ -21,7 +21,16 @@
           </f:entry>             
           <f:entry title="${%Update Jira Issues For All Build Results}" >
             <f:checkbox name="jira.updateJiraIssueForAllStatus" checked="${site.updateJiraIssueForAllStatus}"/>
+          </f:entry>
+          <f:entry title="${%Execute Jira Workflow Actions For All Build Results}" >
+            <f:checkbox name="jira.executeJiraWorflowActionForAllStatus" checked="${site.executeJiraWorflowActionForAllStatus}"/>
           </f:entry>          
+          <f:entry title="${%Jira Workflow Action Mapping}" >
+          	<f:textarea name="jira.workflowActionMapping" 
+          				value="${site.workflowActionMapping}"
+          				checkUrl="'${rootURL}/jobProperty/JiraProjectProperty/workflowActionMappingValidation?mapping='+escape(this.value)" 
+          	/>
+          </f:entry>
           <f:entry title="${%User Name}" help="/plugin/jira/help-login.html">
             <f:textbox name="jira.userName" value="${site.userName}"
                 checkMethod="post"

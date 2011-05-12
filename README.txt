@@ -94,9 +94,11 @@ Execute Workflow Actions via Commit Comment
     separated workflows you can map the different workflow actions to the same 
     commit action.
         
-  - TODO: For non trivial workflows with required action fields, how can i provide the values for it?
+  - TODOs
+    
+    For non trivial workflows with required action fields:  how can i provide the values for it?
   
-  - In out favorite scm client, can we use commit comment templates to keep the notation.
+  - In our favorite scm client, can we use "commit comment templates" to keep the notation.
   
   - Error handling: 
     If any error occurred (workflow action not found, error on execute the action 

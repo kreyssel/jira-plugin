@@ -10,7 +10,9 @@ import hudson.plugins.jira.soap.RemoteIssue;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.ParseException;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -53,6 +55,15 @@ public class JiraSite {
     public final String password;
 
     /**
+     * Defines the mapping of commit actions to worflow actions.
+     * Multiple lines of mappings in format [commit action]=[[JIRA Workflow Action ID], ...]
+     * Example: resolve=10
+     *          close=12,33
+     *          reopen=23,34
+     */
+    public final String workflowActionMapping;
+    
+    /**
      * Group visibility to constrain the visibility of the added comment. Optional.
      */
     public final String groupVisibility;
@@ -66,7 +77,7 @@ public class JiraSite {
      * True if this JIRA is configured to allow Confluence-style Wiki comment.
      */
     public final boolean supportsWikiStyleComment;
-    
+     
     /**
      * to record scm changes in jira issue
      * @since 1.21
@@ -87,6 +98,11 @@ public class JiraSite {
      */
     public final boolean updateJiraIssueForAllStatus;
     
+    /**
+     * execute the jira workflow action for all status
+     */
+    public final boolean executeJiraWorflowActionForAllStatus;
+    
 
     /**
      * List of project keys (i.e., "MNG" portion of "MNG-512"),
@@ -100,8 +116,8 @@ public class JiraSite {
      * @stapler-constructor
      */
     @DataBoundConstructor
-    public JiraSite(URL url, String userName, String password, boolean supportsWikiStyleComment, boolean recordScmChanges, String userPattern, 
-                    boolean updateJiraIssueForAllStatus, String groupVisibility, String roleVisibility) {
+    public JiraSite(URL url, String userName, String password, String workflowActionMapping, boolean supportsWikiStyleComment, boolean recordScmChanges, String userPattern, 
+                    boolean updateJiraIssueForAllStatus, boolean executeJiraWorflowActionForAllStatus, String groupVisibility, String roleVisibility) {
         if(!url.toExternalForm().endsWith("/"))
             try {
                 url = new URL(url.toExternalForm()+"/");
@@ -111,6 +127,7 @@ public class JiraSite {
         this.url = url;
         this.userName = Util.fixEmpty(userName);
         this.password = Util.fixEmpty(password);
+        this.workflowActionMapping = Util.fixEmpty(workflowActionMapping);
         this.supportsWikiStyleComment = supportsWikiStyleComment;
         this.recordScmChanges = recordScmChanges;
         this.userPattern = Util.fixEmpty(userPattern);
@@ -121,6 +138,7 @@ public class JiraSite {
         }
          
         this.updateJiraIssueForAllStatus = updateJiraIssueForAllStatus;
+        this.executeJiraWorflowActionForAllStatus = executeJiraWorflowActionForAllStatus;
         this.groupVisibility = Util.fixEmpty(groupVisibility);
         this.roleVisibility = Util.fixEmpty(roleVisibility);
     }
@@ -158,6 +176,10 @@ public class JiraSite {
     public URL getUrl(String id) throws MalformedURLException {
         return new URL(url, "browse/" + id.toUpperCase());
     }
+    
+    public List<JiraWorkflowAction> getWorkflowActionMapping() throws ParseException {
+		return JiraWorkflowAction.parse(workflowActionMapping);
+	}
     
     /**
      * Gets the user-defined issue pattern if any.
@@ -264,7 +286,9 @@ public class JiraSite {
         if (session != null) {
             RemoteIssue remoteIssue = session.getIssue(id);
             if (remoteIssue != null) {
-                return new JiraIssue(remoteIssue);
+            	String status = session.getStatus(remoteIssue.getStatus());
+            	String resolution = session.getResolution(remoteIssue.getResolution());
+                return new JiraIssue(remoteIssue, status, resolution, null, null);
             }
         }
         return null;
