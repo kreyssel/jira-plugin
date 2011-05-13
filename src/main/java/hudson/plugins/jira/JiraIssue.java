@@ -29,6 +29,8 @@ public final class JiraIssue implements Comparable<JiraIssue> {
 
     public final String status;
     
+    public final String statusImgUrl;
+    
     public final String resolution;
     
     public final String action;
@@ -39,15 +41,17 @@ public final class JiraIssue implements Comparable<JiraIssue> {
         this.id = id;
         this.title = title;
         this.status = null;
+        this.statusImgUrl = null;
         this.resolution = null;
         this.action = null;
         this.actionHint = null;
     }
 
-    public JiraIssue(RemoteIssue issue, String status, String resolution, String action, String actionHint) {
+    public JiraIssue(RemoteIssue issue, String status, String statusImgUrl, String resolution, String action, String actionHint) {
         this.id = issue.getKey();
         this.title =  issue.getSummary();
         this.status = status;
+        this.statusImgUrl = statusImgUrl;
         this.resolution = resolution;
         this.action = action;
         this.actionHint = actionHint;

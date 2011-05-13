@@ -47,19 +47,19 @@ public class JiraSession {
 	 */
 	private Set<String> projectKeys;
 
-	/**
-	 * Lazily computed list of satuses with description 
-	 * Map<id, description>
-	 * TODO: invalidate this map after ??? hours
-	 */
-	Map<String, String> statuses;
-	
-	/**
-	 * Lazily computed list of resolutions with description 
-	 * Map<id, description>
-	 * TODO: invalidate this map after ??? hours
-	 */
-	Map<String, String> resolutions;
+//	/**
+//	 * Lazily computed list of satuses with description 
+//	 * Map<id, description>
+//	 * TODO: invalidate this map after ??? hours
+//	 */
+//	Map<String, String> statuses;
+//	
+//	/**
+//	 * Lazily computed list of resolutions with description 
+//	 * Map<id, description>
+//	 * TODO: invalidate this map after ??? hours
+//	 */
+//	Map<String, String> resolutions;
 	
 	/**
 	 * This session is created for this site.
@@ -129,9 +129,9 @@ public class JiraSession {
 	public void progressWorkflowAction(String issueId, String commitAction) throws RemoteException, ParseException {
 
 		// find the mapped jira workflow action ids for the issues commit action
-		JiraWorkflowAction action=null;
+		JiraWorkflowActionMapping action=null;
 		
-		for(JiraWorkflowAction actionMapping : site.getWorkflowActionMapping()){
+		for(JiraWorkflowActionMapping actionMapping : site.getWorkflowActionMappings()){
 			if(StringUtils.equalsIgnoreCase(commitAction, actionMapping.action)){
 				action = actionMapping;
 				break;
@@ -139,7 +139,7 @@ public class JiraSession {
 		}
 		
 		if(action==null) {
-			LOGGER.severe("Could not find action mapping for action " + commitAction + " - ID " + issueId);
+			LOGGER.severe("Could not find action mapping for action " + commitAction + " - action executed for issue " + issueId);
 			// TODO: send error email
 			return;
 		}
@@ -148,18 +148,34 @@ public class JiraSession {
 		String actionId = null; 
 		
 		RemoteNamedObject[] availableActions = service.getAvailableActions(token, issueId);
-		for(RemoteNamedObject availableAction : availableActions ){
-			for(String mappedActionId: action.actionIds){
-				if(StringUtils.equals(availableAction.getId(), mappedActionId)){
-					actionId = mappedActionId;
-					break;
+		if(availableActions!=null && availableActions.length > 0) {
+			for(RemoteNamedObject availableAction : availableActions ){
+				for(String mappedActionId: action.actionIds){
+					if(StringUtils.equals(availableAction.getId(), mappedActionId)){
+						actionId = mappedActionId;
+						break;
+					}
 				}
 			}
 		}
 		
 		if(actionId == null) {
-			LOGGER.severe("Could not find or user have no rights to access action "+action.action + " for issue "+ issueId);
+			StringBuilder b = new StringBuilder();
+			if(availableActions != null && availableActions.length > 0) {
+				b.append("\nAvailable jira worfklow actions are: ");
+				for(RemoteNamedObject availableAction : availableActions ){
+					b.append("\n\t");
+					b.append(availableAction.getName());
+					b.append(" = ID ");
+					b.append(availableAction.getId());
+				}
+			} else {
+				b.append("Could not found any actions for the issue!");
+			}
+			
+			LOGGER.severe(Messages.Updater_ErrorOnExecuteWorkflowAction(action.action, issueId, b));
 			// TODO: send error email
+			// TODO: should build fail?
 			return;
 		}
 		
@@ -182,42 +198,60 @@ public class JiraSession {
 			return null;
 	}
 
-	public String getStatus(String id) throws RemotePermissionException, RemoteAuthenticationException, RemoteException {
+	public RemoteStatus getStatus(String id) throws RemotePermissionException, RemoteAuthenticationException, RemoteException {
 		if(StringUtils.isBlank(id)) {
 			return null;
 		}
 		
-		if(this.statuses != null && this.statuses.containsKey(id)) {
-			return this.statuses.get(id);
+//		if(this.statuses != null && this.statuses.containsKey(id)) {
+//			return this.statuses.get(id);
+//		}
+//		
+//		RemoteStatus[] remoteStatuses = service.getStatuses(this.token);
+//		this.statuses = new HashMap<String, String>(remoteStatuses.length);
+//		
+//		for(RemoteStatus remoteStatus : remoteStatuses) {
+//			this.statuses.put(remoteStatus.getId(), remoteStatus.getDescription());
+//		}		
+//		
+//		return this.statuses.get(id);
+		RemoteStatus[] statuses = service.getStatuses(this.token);
+		if(statuses != null && statuses.length > 0) {
+			for(RemoteStatus status : statuses) {
+				if(StringUtils.equals(id, status.getId())) {
+					return status;
+				}
+			}
 		}
-		
-		RemoteStatus[] remoteStatuses = service.getStatuses(this.token);
-		this.statuses = new HashMap<String, String>(remoteStatuses.length);
-		
-		for(RemoteStatus remoteStatus : remoteStatuses) {
-			this.statuses.put(remoteStatus.getId(), remoteStatus.getDescription());
-		}		
-		
-		return this.statuses.get(id);
+		return null;
 	}
 	
-	public String getResolution(String id) throws RemotePermissionException, RemoteAuthenticationException, RemoteException {
+	public RemoteResolution getResolution(String id) throws RemotePermissionException, RemoteAuthenticationException, RemoteException {
 		if(StringUtils.isBlank(id)) {
 			return null;
 		}		
 		
-		if(this.resolutions != null && this.resolutions.containsKey(id)) {
-			return this.resolutions.get(id);
+//		if(this.resolutions != null && this.resolutions.containsKey(id)) {
+//			return this.resolutions.get(id);
+//		}
+//		
+//		RemoteResolution[] remoteResolutions = service.getResolutions(this.token);
+//		this.resolutions = new HashMap<String, String>(remoteResolutions.length);
+//		
+//		for(RemoteResolution remoteResolution : remoteResolutions) {
+//			this.resolutions.put(remoteResolution.getId(), remoteResolution.getDescription());
+//		}		
+//		
+//		return this.resolutions.get(id);
+		RemoteResolution[] resolutions = service.getResolutions(this.token);
+		if(resolutions != null && resolutions.length > 0) {
+			for(RemoteResolution resolution : resolutions) {
+				if(StringUtils.equals(id, resolution.getId())) {
+					return resolution;
+				}
+			}
 		}
-		
-		RemoteResolution[] remoteResolutions = service.getResolutions(this.token);
-		this.resolutions = new HashMap<String, String>(remoteResolutions.length);
-		
-		for(RemoteResolution remoteResolution : remoteResolutions) {
-			this.resolutions.put(remoteResolution.getId(), remoteResolution.getDescription());
-		}		
-		
-		return this.resolutions.get(id);
+		return null;
 	}
 	
 	/**

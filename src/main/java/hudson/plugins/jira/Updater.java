@@ -9,6 +9,8 @@ import hudson.model.Run;
 import hudson.model.AbstractBuild.DependencyChange;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemotePermissionException;
+import hudson.plugins.jira.soap.RemoteResolution;
+import hudson.plugins.jira.soap.RemoteStatus;
 import hudson.scm.RepositoryBrowser;
 import hudson.scm.ChangeLogSet.AffectedFile;
 import hudson.scm.ChangeLogSet.Entry;
@@ -63,7 +65,7 @@ class Updater {
     
             if(ids.isEmpty()) {
                 if(debug)
-                    logger.println("No JIRA issues found.");
+                    logger.println(Messages.Updater_NoJiraIssuesFound());
                 return true;    // nothing found here.
             }
             
@@ -114,7 +116,7 @@ class Updater {
             }
             
         } catch (Exception e) {
-            logger.println("Error updating JIRA issues. Saving issues for next build.\n" + e);
+            logger.println(Messages.Updater_ErrorOnUpdatingIssues(e));
             if (issues != null && !issues.isEmpty()) {
                 // updating issues failed, so carry forward issues to the next build
                 build.addAction(new JiraCarryOverAction(issues));
@@ -146,7 +148,7 @@ class Updater {
 	    List<JiraIssue> copy = new ArrayList<JiraIssue>(issues);
         for (JiraIssue issue : copy) {
             try {
-                logger.println(Messages.Updater_Updating(issue.id));
+                logger.println(Messages.Updater_AddComment(issue.id));
                 StringBuilder aggregateComment = new StringBuilder();
                 for(Entry e :build.getChangeSet()){
                     if(e.getMsg().toUpperCase().contains(issue.id)){
@@ -164,7 +166,7 @@ class Updater {
                 // 'issue doesn't exist'.
                 // To prevent carrying forward invalid issues forever, we have to drop them
                 // even if the cause of the exception was different.
-                logger.println("Looks like " + issue.id + " is no valid JIRA issue. Issue will not be updated or you dont have valid rights.\n" + e);
+                logger.println(Messages.Updater_RemoteErrorOnUpdatingIssue(issue.id, e));
                 issues.remove(issue);
             }
         }
@@ -176,6 +178,7 @@ class Updater {
 	    for (JiraIssue issue : issues) {
 	        try {
 	        	if(StringUtils.isNotBlank(issue.action)) {
+	        		logger.println(Messages.Updater_ExecuteWorkflowAction(issue.action, issue.id));
 	        		session.progressWorkflowAction(issue.id, issue.action);
 	        	}
 	        } catch (RemotePermissionException e) {
@@ -186,7 +189,6 @@ class Updater {
 	    }
     }
 
-    
 	private static List<JiraIssue> getJiraIssues( 
             Set<ParsedIssueDetails> ids, JiraSession session, PrintStream logger) throws RemoteException {
         List<JiraIssue> issues = new ArrayList<JiraIssue>(ids.size());
@@ -198,10 +200,10 @@ class Updater {
             }
             
             RemoteIssue issue = session.getIssue(id.id);
-            String status = session.getStatus(issue.getStatus());
-            String resolution = session.getResolution(issue.getResolution());
+            RemoteStatus status = session.getStatus(issue.getStatus());
+            RemoteResolution resolution = session.getResolution(issue.getResolution());
             
-            issues.add(new JiraIssue(issue, status, resolution, id.action, id.comment));
+            issues.add(new JiraIssue(issue, status.getName(), status.getIcon(), resolution.getName(), id.action, id.comment));
         }
         return issues;
     }

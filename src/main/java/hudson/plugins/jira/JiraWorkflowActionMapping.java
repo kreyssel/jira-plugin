@@ -17,7 +17,7 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-public class JiraWorkflowAction {
+public class JiraWorkflowActionMapping {
 
 	final static Pattern ENTRY_PATTERN = Pattern.compile("^([a-z]+)[=](.*)$");
 	
@@ -27,7 +27,7 @@ public class JiraWorkflowAction {
 	// the mapped jira worflow action ids
 	public final List<String> actionIds;
 	
-	public JiraWorkflowAction(String configLineEntry)throws ParseException {
+	public JiraWorkflowActionMapping(String configLineEntry)throws ParseException {
 		String line = StringUtils.strip(configLineEntry);
 		
 		if(line == null) {
@@ -63,19 +63,19 @@ public class JiraWorkflowAction {
 		this.actionIds = Lists.newArrayList(ids);
 	}
 	
-	public JiraWorkflowAction(String action, List<String> actionIds){
+	public JiraWorkflowActionMapping(String action, List<String> actionIds){
 		this.action = action;
 		this.actionIds = new ArrayList<String>(actionIds);
 	}
 	
-	public static List<JiraWorkflowAction> parse(String multiLineConfig) throws ParseException {
-		List<JiraWorkflowAction> mapping = new ArrayList<JiraWorkflowAction>();
+	public static List<JiraWorkflowActionMapping> parse(String multiLineConfig) throws ParseException {
+		List<JiraWorkflowActionMapping> mapping = new ArrayList<JiraWorkflowActionMapping>();
 		String[] lines = StringUtils.split(multiLineConfig, '\n');
 		for(String line:lines){
 			if(StringUtils.isBlank(line)) {
 				continue;
 			}
-			JiraWorkflowAction actionMapping = new JiraWorkflowAction(line);
+			JiraWorkflowActionMapping actionMapping = new JiraWorkflowActionMapping(line);
 			mapping.add(actionMapping);
 		}
 		return mapping;
@@ -91,10 +91,10 @@ public class JiraWorkflowAction {
 		if(obj==null){
 			return false;
 		}
-		if(obj instanceof JiraWorkflowAction == false){
+		if(obj instanceof JiraWorkflowActionMapping == false){
 			return false;
 		}
-		JiraWorkflowAction comp = (JiraWorkflowAction)obj;
+		JiraWorkflowActionMapping comp = (JiraWorkflowActionMapping)obj;
 		return new EqualsBuilder().append(this.action, comp.action).isEquals();
 	}
 }

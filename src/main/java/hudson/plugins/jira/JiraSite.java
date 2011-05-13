@@ -6,6 +6,8 @@ import hudson.plugins.jira.soap.JiraSoapService;
 import hudson.plugins.jira.soap.JiraSoapServiceService;
 import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteIssue;
+import hudson.plugins.jira.soap.RemoteResolution;
+import hudson.plugins.jira.soap.RemoteStatus;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -177,8 +179,8 @@ public class JiraSite {
         return new URL(url, "browse/" + id.toUpperCase());
     }
     
-    public List<JiraWorkflowAction> getWorkflowActionMapping() throws ParseException {
-		return JiraWorkflowAction.parse(workflowActionMapping);
+    public List<JiraWorkflowActionMapping> getWorkflowActionMappings() throws ParseException {
+		return JiraWorkflowActionMapping.parse(workflowActionMapping);
 	}
     
     /**
@@ -286,9 +288,9 @@ public class JiraSite {
         if (session != null) {
             RemoteIssue remoteIssue = session.getIssue(id);
             if (remoteIssue != null) {
-            	String status = session.getStatus(remoteIssue.getStatus());
-            	String resolution = session.getResolution(remoteIssue.getResolution());
-                return new JiraIssue(remoteIssue, status, resolution, null, null);
+            	RemoteStatus status = session.getStatus(remoteIssue.getStatus());
+            	RemoteResolution resolution = session.getResolution(remoteIssue.getResolution());
+                return new JiraIssue(remoteIssue, status.getName(), status.getIcon(), resolution.getName(), null, null);
             }
         }
         return null;
