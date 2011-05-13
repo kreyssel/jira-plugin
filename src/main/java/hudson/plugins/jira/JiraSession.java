@@ -129,9 +129,9 @@ public class JiraSession {
 	public void progressWorkflowAction(String issueId, String commitAction) throws RemoteException, ParseException {
 
 		// find the mapped jira workflow action ids for the issues commit action
-		JiraWorkflowAction action=null;
+		JiraWorkflowActionMapping action=null;
 		
-		for(JiraWorkflowAction actionMapping : site.getWorkflowActionMapping()){
+		for(JiraWorkflowActionMapping actionMapping : site.getWorkflowActionMappings()){
 			if(StringUtils.equalsIgnoreCase(commitAction, actionMapping.action)){
 				action = actionMapping;
 				break;
@@ -139,7 +139,7 @@ public class JiraSession {
 		}
 		
 		if(action==null) {
-			LOGGER.severe("Could not find action mapping for action " + commitAction + " - ID " + issueId);
+			LOGGER.severe("Could not find action mapping for action " + commitAction + " - action executed for issue " + issueId);
 			// TODO: send error email
 			return;
 		}
@@ -148,18 +148,34 @@ public class JiraSession {
 		String actionId = null; 
 		
 		RemoteNamedObject[] availableActions = service.getAvailableActions(token, issueId);
-		for(RemoteNamedObject availableAction : availableActions ){
-			for(String mappedActionId: action.actionIds){
-				if(StringUtils.equals(availableAction.getId(), mappedActionId)){
-					actionId = mappedActionId;
-					break;
+		if(availableActions!=null && availableActions.length > 0) {
+			for(RemoteNamedObject availableAction : availableActions ){
+				for(String mappedActionId: action.actionIds){
+					if(StringUtils.equals(availableAction.getId(), mappedActionId)){
+						actionId = mappedActionId;
+						break;
+					}
 				}
 			}
 		}
 		
 		if(actionId == null) {
-			LOGGER.severe("Could not find or user have no rights to access action "+action.action + " for issue "+ issueId);
+			StringBuilder b = new StringBuilder();
+			if(availableActions != null && availableActions.length > 0) {
+				b.append("\nAvailable jira worfklow actions are: ");
+				for(RemoteNamedObject availableAction : availableActions ){
+					b.append("\n\t");
+					b.append(availableAction.getName());
+					b.append(" = ID ");
+					b.append(availableAction.getId());
+				}
+			} else {
+				b.append("Could not found any actions for the issue!");
+			}
+			
+			LOGGER.severe("Could not find action or user have no rights to access action '#"+action.action + "' for issue "+ issueId + b);
 			// TODO: send error email
+			// TODO: should build fail?
 			return;
 		}
 		

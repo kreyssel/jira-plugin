@@ -177,8 +177,8 @@ public class JiraSite {
         return new URL(url, "browse/" + id.toUpperCase());
     }
     
-    public List<JiraWorkflowAction> getWorkflowActionMapping() throws ParseException {
-		return JiraWorkflowAction.parse(workflowActionMapping);
+    public List<JiraWorkflowActionMapping> getWorkflowActionMappings() throws ParseException {
+		return JiraWorkflowActionMapping.parse(workflowActionMapping);
 	}
     
     /**

@@ -7,11 +7,11 @@ import java.util.Arrays;
 
 import org.junit.Test;
 
-public class JiraWorkflowActionTest {
+public class JiraWorkflowActionMappingTest {
 
 	@Test
 	public void testMappingPattern() throws Exception {
-		JiraWorkflowAction a1 = new JiraWorkflowAction("close=1, 2, 3");
+		JiraWorkflowActionMapping a1 = new JiraWorkflowActionMapping("close=1, 2, 3");
 		assertEquals("close", a1.action);
 		assertEquals(Arrays.asList("1","2","3"), a1.actionIds);
 	}
@@ -30,7 +30,7 @@ public class JiraWorkflowActionTest {
 	
 	private void assertParseError(String line){
 		try {
-			new JiraWorkflowAction(line);
+			new JiraWorkflowActionMapping(line);
 			fail(line);
 		} catch( ParseException  ex ) {
 			// OK

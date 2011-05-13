@@ -213,9 +213,9 @@ public class JiraProjectProperty extends JobProperty<AbstractProject<?, ?>> {
 				return FormValidation.ok();
 			}
 			
-			List<JiraWorkflowAction> actionMappings;
+			List<JiraWorkflowActionMapping> actionMappings;
 			try {
-				actionMappings = JiraWorkflowAction.parse(mapping);
+				actionMappings = JiraWorkflowActionMapping.parse(mapping);
 			} catch (ParseException e) {
 				return FormValidation.error("Error on parse entry '"	+ e.getMessage() + 
 						"'! The correct format is [commit action a-z]=[[jira worflow action id],...].");

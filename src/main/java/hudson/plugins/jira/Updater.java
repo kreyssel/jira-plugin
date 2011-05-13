@@ -186,7 +186,6 @@ class Updater {
 	    }
     }
 
-    
 	private static List<JiraIssue> getJiraIssues( 
             Set<ParsedIssueDetails> ids, JiraSession session, PrintStream logger) throws RemoteException {
         List<JiraIssue> issues = new ArrayList<JiraIssue>(ids.size());
