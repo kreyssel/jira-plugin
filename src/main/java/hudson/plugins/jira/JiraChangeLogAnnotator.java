@@ -10,6 +10,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringUtils;
+
 import hudson.Extension;
 import hudson.MarkupText;
 import hudson.Util;
@@ -81,8 +83,13 @@ public class JiraChangeLogAnnotator extends ChangeLogAnnotator {
                 if(issue==null) {
                 	text.addMarkup(m.start(1), m.end(1), "<a href='"+url+"'>", "</a>");
                 } else {
-                	text.addMarkup(m.start(1), m.end(1),
-            			String.format("<a href='%s' tooltip='%s'>",url, Util.escape(issue.title)), "</a>");
+                	String startTag = "";
+                	if(StringUtils.isNotBlank(issue.statusImgUrl)) {
+                		startTag = String.format("<img src='%s' title='%s' /> ", issue.statusImgUrl, Util.escape(issue.status));
+                	}
+                	startTag += String.format("<a href='%s' tooltip='%s'>",url, Util.escape(issue.title));
+                	String endTag = "</a>";
+                	text.addMarkup(m.start(1), m.end(1), startTag, endTag);
                 }
         		
         	} else {

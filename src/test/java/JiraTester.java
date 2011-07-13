@@ -5,6 +5,7 @@ import hudson.plugins.jira.soap.RemoteField;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteNamedObject;
 import hudson.plugins.jira.soap.RemoteProject;
+import hudson.plugins.jira.soap.RemoteResolution;
 import hudson.plugins.jira.soap.RemoteStatus;
 
 import java.net.URL;
@@ -48,11 +49,17 @@ public class JiraTester {
 			System.out.println("ActionField: " + actionField.getId() + " - "
 					+ actionField.getName());
 		}
-
-		RemoteField[] customFields = service.getCustomFields(token);
-		for(RemoteField field:customFields){
-			System.out.println("Field: "+field.getId() + " - "+field.getName());
+		
+		RemoteResolution[] resolutions = service.getResolutions(token);
+		for (RemoteResolution resolution : resolutions) {
+			System.out.println("Resolution: " + resolution.getId() + " - "
+					+ resolution.getName());
 		}
+
+//		RemoteField[] customFields = service.getCustomFields(token);
+//		for(RemoteField field:customFields){
+//			System.out.println("Field: "+field.getId() + " - "+field.getName());
+//		}
 
 		RemoteIssue updatedIssues = service.progressWorkflowAction(token,
 				issueId, actionId, null);

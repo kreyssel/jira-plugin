@@ -1,17 +1,25 @@
 package hudson.plugins.jira;
 
 import hudson.plugins.jira.soap.JiraSoapService;
+import hudson.plugins.jira.soap.RemoteAuthenticationException;
 import hudson.plugins.jira.soap.RemoteComment;
 import hudson.plugins.jira.soap.RemoteGroup;
 import hudson.plugins.jira.soap.RemoteIssue;
+import hudson.plugins.jira.soap.RemoteNamedObject;
+import hudson.plugins.jira.soap.RemotePermissionException;
 import hudson.plugins.jira.soap.RemoteProject;
 import hudson.plugins.jira.soap.RemoteProjectRole;
+import hudson.plugins.jira.soap.RemoteResolution;
+import hudson.plugins.jira.soap.RemoteStatus;
 import hudson.plugins.jira.soap.RemoteValidationException;
 
 import java.rmi.RemoteException;
+import java.text.ParseException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
+
+import org.apache.commons.lang.StringUtils;
 
 /**
  * Connection to JIRA.
@@ -37,6 +45,20 @@ public class JiraSession {
 	 */
 	private Set<String> projectKeys;
 
+//	/**
+//	 * Lazily computed list of satuses with description 
+//	 * Map<id, description>
+//	 * TODO: invalidate this map after ??? hours
+//	 */
+//	Map<String, String> statuses;
+//	
+//	/**
+//	 * Lazily computed list of resolutions with description 
+//	 * Map<id, description>
+//	 * TODO: invalidate this map after ??? hours
+//	 */
+//	Map<String, String> resolutions;
+	
 	/**
 	 * This session is created for this site.
 	 */
@@ -102,6 +124,64 @@ public class JiraSession {
 		service.addComment(token, issueId, rc);
 	}
 
+	public void progressWorkflowAction(String issueId, String commitAction) throws RemoteException, ParseException {
+
+		// find the mapped jira workflow action ids for the issues commit action
+		JiraWorkflowActionMapping action=null;
+		
+		for(JiraWorkflowActionMapping actionMapping : site.getWorkflowActionMappings()){
+			if(StringUtils.equalsIgnoreCase(commitAction, actionMapping.action)){
+				action = actionMapping;
+				break;
+			}
+		}
+		
+		if(action==null) {
+			LOGGER.severe("Could not find action mapping for action " + commitAction + " - action executed for issue " + issueId);
+			// TODO: send error email
+			return;
+		}
+		
+		// find the first mapped available action for the issue
+		String actionId = null; 
+		
+		RemoteNamedObject[] availableActions = service.getAvailableActions(token, issueId);
+		if(availableActions!=null && availableActions.length > 0) {
+			for(RemoteNamedObject availableAction : availableActions ){
+				for(String mappedActionId: action.actionIds){
+					if(StringUtils.equals(availableAction.getId(), mappedActionId)){
+						actionId = mappedActionId;
+						break;
+					}
+				}
+			}
+		}
+		
+		if(actionId == null) {
+			StringBuilder b = new StringBuilder();
+			if(availableActions != null && availableActions.length > 0) {
+				b.append("\nAvailable jira worfklow actions are: ");
+				for(RemoteNamedObject availableAction : availableActions ){
+					b.append("\n\t");
+					b.append(availableAction.getName());
+					b.append(" = ID ");
+					b.append(availableAction.getId());
+				}
+			} else {
+				b.append("Could not found any actions for the issue!");
+			}
+			
+			LOGGER.severe(Messages.Updater_ErrorOnExecuteWorkflowAction(action.action, issueId, b));
+			// TODO: send error email
+			// TODO: should build fail?
+			return;
+		}
+		
+		// this executes the jira workflow action and returns the changed issue
+		// TODO: add handling for workflow action fields
+		RemoteIssue changedIssue = service.progressWorkflowAction(token, issueId, actionId, null);
+	}
+	
 	/**
 	 * Gets the details of one issue.
 	 * 
@@ -116,6 +196,62 @@ public class JiraSession {
 			return null;
 	}
 
+	public RemoteStatus getStatus(String id) throws RemotePermissionException, RemoteAuthenticationException, RemoteException {
+		if(StringUtils.isBlank(id)) {
+			return null;
+		}
+		
+//		if(this.statuses != null && this.statuses.containsKey(id)) {
+//			return this.statuses.get(id);
+//		}
+//		
+//		RemoteStatus[] remoteStatuses = service.getStatuses(this.token);
+//		this.statuses = new HashMap<String, String>(remoteStatuses.length);
+//		
+//		for(RemoteStatus remoteStatus : remoteStatuses) {
+//			this.statuses.put(remoteStatus.getId(), remoteStatus.getDescription());
+//		}		
+//		
+//		return this.statuses.get(id);
+		RemoteStatus[] statuses = service.getStatuses(this.token);
+		if(statuses != null && statuses.length > 0) {
+			for(RemoteStatus status : statuses) {
+				if(StringUtils.equals(id, status.getId())) {
+					return status;
+				}
+			}
+		}
+		return null;
+	}
+	
+	public RemoteResolution getResolution(String id) throws RemotePermissionException, RemoteAuthenticationException, RemoteException {
+		if(StringUtils.isBlank(id)) {
+			return null;
+		}		
+		
+//		if(this.resolutions != null && this.resolutions.containsKey(id)) {
+//			return this.resolutions.get(id);
+//		}
+//		
+//		RemoteResolution[] remoteResolutions = service.getResolutions(this.token);
+//		this.resolutions = new HashMap<String, String>(remoteResolutions.length);
+//		
+//		for(RemoteResolution remoteResolution : remoteResolutions) {
+//			this.resolutions.put(remoteResolution.getId(), remoteResolution.getDescription());
+//		}		
+//		
+//		return this.resolutions.get(id);
+		RemoteResolution[] resolutions = service.getResolutions(this.token);
+		if(resolutions != null && resolutions.length > 0) {
+			for(RemoteResolution resolution : resolutions) {
+				if(StringUtils.equals(id, resolution.getId())) {
+					return resolution;
+				}
+			}
+		}
+		return null;
+	}
+	
 	/**
 	 * Gets all issues that match the given JQL filter
 	 * 

@@ -12,6 +12,7 @@ import hudson.plugins.jira.soap.RemoteValidationException;
 import hudson.util.CopyOnWriteList;
 import hudson.util.FormValidation;
 import org.apache.axis.AxisFault;
+import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -19,6 +20,8 @@ import javax.servlet.ServletException;
 import javax.xml.rpc.ServiceException;
 import java.io.IOException;
 import java.net.URL;
+import java.text.ParseException;
+import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
@@ -26,6 +29,8 @@ import java.util.regex.PatternSyntaxException;
 
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.QueryParameter;
+
+import com.google.common.collect.Lists;
 
 /**
  * Associates {@link AbstractProject} with {@link JiraSite}.
@@ -141,7 +146,7 @@ public class JiraProjectProperty extends JobProperty<AbstractProject<?, ?>> {
 						return FormValidation.error(Messages
 								.JiraProjectProperty_JiraUrlMandatory());
 					}
-					
+
 					// call the wsdl uri to check if the jira soap service can be reached
 					try {
                         if (!findText(open(new URL(url)), "Atlassian JIRA"))
@@ -173,8 +178,8 @@ public class JiraProjectProperty extends JobProperty<AbstractProject<?, ?>> {
 				return FormValidation.ok();
 			}
 			JiraSite site = new JiraSite(new URL(url), request
-					.getParameter("user"), request.getParameter("pass"), false,
-					false, null, false, request.getParameter("groupVisibility"), request.getParameter("roleVisibility"));
+					.getParameter("user"), request.getParameter("pass"), null, false,
+					false, null, false, false, request.getParameter("groupVisibility"), request.getParameter("roleVisibility"));
 			try {
 				site.createSession();
 				return FormValidation.ok();
@@ -202,6 +207,29 @@ public class JiraProjectProperty extends JobProperty<AbstractProject<?, ?>> {
 			} catch (PatternSyntaxException e) {
 				return FormValidation.error(e.getMessage());
 			}
+		}
+		
+		public FormValidation doWorkflowActionMappingValidation(StaplerRequest request)
+			throws IOException {
+			
+			String mapping = request.getParameter("mapping");
+			if (StringUtils.isBlank(mapping)) {
+				return FormValidation.ok();
+			}
+			
+			List<JiraWorkflowActionMapping> actionMappings;
+			try {
+				actionMappings = JiraWorkflowActionMapping.parse(mapping);
+			} catch (ParseException e) {
+				return FormValidation.error("Error on parse entry '"	+ e.getMessage() + 
+						"'! The correct format is [commit action a-z]=[[jira worflow action id],...].");
+			}
+			
+			if(actionMappings.isEmpty()){
+				return FormValidation.error("No valid jira workflow action mappings defined!");
+			}
+			
+			return FormValidation.ok();
 		}
 	}
 

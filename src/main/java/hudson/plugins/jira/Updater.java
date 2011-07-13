@@ -7,7 +7,10 @@ import hudson.model.Hudson;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.AbstractBuild.DependencyChange;
+import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemotePermissionException;
+import hudson.plugins.jira.soap.RemoteResolution;
+import hudson.plugins.jira.soap.RemoteStatus;
 import hudson.scm.RepositoryBrowser;
 import hudson.scm.ChangeLogSet.AffectedFile;
 import hudson.scm.ChangeLogSet.Entry;
@@ -17,6 +20,7 @@ import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.rmi.RemoteException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -28,6 +32,8 @@ import java.util.regex.Pattern;
 import javax.xml.rpc.ServiceException;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 
 /**
  * Actual JIRA update logic.
@@ -55,11 +61,11 @@ class Updater {
                 return true;
             }
             
-            Set<String> ids = findIssueIdsRecursive(build, site.getIssuePattern(), listener);
+            Set<ParsedIssueDetails> ids = findIssueIdsRecursive(build, site.getIssuePattern(), listener);
     
             if(ids.isEmpty()) {
                 if(debug)
-                    logger.println("No JIRA issues found.");
+                    logger.println(Messages.Updater_NoJiraIssuesFound());
                 return true;    // nothing found here.
             }
             
@@ -76,26 +82,41 @@ class Updater {
                 return true;
             }
     
-            boolean doUpdate = false;
-            if (site.updateJiraIssueForAllStatus){
-                doUpdate = true;
-            } else {
-              doUpdate = build.getResult().isBetterOrEqualTo(Result.UNSTABLE);
-            }
-            boolean useWikiStyleComments = site.supportsWikiStyleComment;
-            
             issues = getJiraIssues(ids, session, logger);
             build.getActions().add(new JiraBuildAction(build,issues));
             
-            if (doUpdate) {
+            boolean doSubmitComments = false;
+            if (site.updateJiraIssueForAllStatus){
+                doSubmitComments = true;
+            } else {
+              doSubmitComments = build.getResult().isBetterOrEqualTo(Result.UNSTABLE);
+            }
+            boolean useWikiStyleComments = site.supportsWikiStyleComment;
+            
+            if (doSubmitComments) {
                 submitComments(build, logger, rootUrl, issues,
                         session, useWikiStyleComments, site.recordScmChanges, site.groupVisibility, site.roleVisibility);
             } else {
                 // this build didn't work, so carry forward the issues to the next build
                 build.addAction(new JiraCarryOverAction(issues));
             }
+            
+            boolean doExecuteWorkflowActions = false;
+            if (site.executeJiraWorflowActionForAllStatus){
+            	doExecuteWorkflowActions = true;
+            } else {
+            	doExecuteWorkflowActions = build.getResult().isBetterOrEqualTo(Result.UNSTABLE);
+            }
+            
+            if (doExecuteWorkflowActions) {
+                executeWorflowAction(build, logger, issues, session);
+            } else {
+                // this build didn't work, so carry forward the issues to the next build
+                build.addAction(new JiraCarryOverAction(issues));
+            }
+            
         } catch (Exception e) {
-            logger.println("Error updating JIRA issues. Saving issues for next build.\n" + e);
+            logger.println(Messages.Updater_ErrorOnUpdatingIssues(e));
             if (issues != null && !issues.isEmpty()) {
                 // updating issues failed, so carry forward issues to the next build
                 build.addAction(new JiraCarryOverAction(issues));
@@ -127,14 +148,13 @@ class Updater {
 	    List<JiraIssue> copy = new ArrayList<JiraIssue>(issues);
         for (JiraIssue issue : copy) {
             try {
-                logger.println(Messages.Updater_Updating(issue.id));
+                logger.println(Messages.Updater_AddComment(issue.id));
                 StringBuilder aggregateComment = new StringBuilder();
                 for(Entry e :build.getChangeSet()){
                     if(e.getMsg().toUpperCase().contains(issue.id)){
                         aggregateComment.append(e.getMsg()).append("\n");
                         // kutzi: don't know why the issue id was removed in previous versions:
                         //aggregateComment = aggregateComment.replaceAll(id, "");
-
                     }
                 }
 
@@ -146,23 +166,44 @@ class Updater {
                 // 'issue doesn't exist'.
                 // To prevent carrying forward invalid issues forever, we have to drop them
                 // even if the cause of the exception was different.
-                logger.println("Looks like " + issue.id + " is no valid JIRA issue. Issue will not be updated or you dont have valid rights.\n" + e);
+                logger.println(Messages.Updater_RemoteErrorOnUpdatingIssue(issue.id, e));
                 issues.remove(issue);
             }
         }
     }
-	
+
+    static void executeWorflowAction(
+            AbstractBuild<?, ?> build, PrintStream logger, List<JiraIssue> issues, JiraSession session) throws RemoteException {
+
+	    for (JiraIssue issue : issues) {
+	        try {
+	        	if(StringUtils.isNotBlank(issue.action)) {
+	        		logger.println(Messages.Updater_ExecuteWorkflowAction(issue.action, issue.id));
+	        		session.progressWorkflowAction(issue.id, issue.action);
+	        	}
+	        } catch (RemotePermissionException e) {
+	            logger.println("Looks like " + issue.id + " is no valid JIRA issue. Issue will not be updated or you dont have valid rights.\n" + e);
+	        } catch (ParseException e) {
+	            logger.println("Looks like an error in the jira worflow action mapping config - " + e.getMessage());
+	        }
+	    }
+    }
+
 	private static List<JiraIssue> getJiraIssues( 
-            Set<String> ids, JiraSession session, PrintStream logger) throws RemoteException {
+            Set<ParsedIssueDetails> ids, JiraSession session, PrintStream logger) throws RemoteException {
         List<JiraIssue> issues = new ArrayList<JiraIssue>(ids.size());
-        for (String id : ids) {
-            if(!session.existsIssue(id)) {
+        for (ParsedIssueDetails id : ids) {
+            if(!session.existsIssue(id.id)) {
                 if(debug)
-                    logger.println(id+" looked like a JIRA issue but it wasn't");
+                    logger.println(id.id+" looked like a JIRA issue but it wasn't");
                 continue;   // token looked like a JIRA issue but it's actually not.
             }
-
-            issues.add(new JiraIssue(session.getIssue(id)));
+            
+            RemoteIssue issue = session.getIssue(id.id);
+            RemoteStatus status = session.getStatus(issue.getStatus());
+            RemoteResolution resolution = session.getResolution(issue.getResolution());
+            
+            issues.add(new JiraIssue(issue, status.getName(), status.getIcon(), resolution.getName(), id.action, id.comment));
         }
         return issues;
     }
@@ -277,16 +318,18 @@ class Updater {
      * {@link JiraSite#existsIssue(String)} here so that new projects
      * in JIRA can be detected.
      */
-    private static Set<String> findIssueIdsRecursive(AbstractBuild<?,?> build, Pattern pattern,
+    private static Set<ParsedIssueDetails> findIssueIdsRecursive(AbstractBuild<?,?> build, Pattern pattern,
     		BuildListener listener) {
-        Set<String> ids = new HashSet<String>();
+        Set<ParsedIssueDetails> ids = new HashSet<ParsedIssueDetails>();
 
         // first, issues that were carried forward.
         Run<?, ?> prev = build.getPreviousBuild();
         if(prev!=null) {
             JiraCarryOverAction a = prev.getAction(JiraCarryOverAction.class);
-            if(a!=null)
-                ids.addAll(a.getIDs());
+            if(a!=null) {
+                //ids.addAll(a.getIDs());
+            	// FIXME
+            }
         }
 
         // then issues in this build
@@ -302,22 +345,27 @@ class Updater {
 
     /**
      * @param pattern pattern to use to match issue ids
-     */
-    static void findIssues(AbstractBuild<?,?> build, Set<String> ids, Pattern pattern,
+     */    
+    static void findIssues(AbstractBuild<?,?> build, Set<ParsedIssueDetails> ids, Pattern pattern,
     		BuildListener listener) {
         for (Entry change : build.getChangeSet()) {
-            LOGGER.fine("Looking for JIRA ID in "+change.getMsg());
-            Matcher m = pattern.matcher(change.getMsg());
-            
-            while (m.find()) {
+        	String commitMessage = change.getMsg();
+
+        	LOGGER.fine("Looking for JIRA ID in " + commitMessage);
+
+            Matcher m = pattern.matcher(commitMessage);
+            int idx = 0;            
+            while (m.find(idx)) {
             	if (m.groupCount() >= 1) {
-	                String content = StringUtils.upperCase( m.group(1));
-	                ids.add(content);
+	                String issueId = StringUtils.upperCase(m.group(1));
+	                idx = m.end();
+	                String commentAfterIssueId = commitMessage.substring(idx, m.find(idx) ? m.start() : commitMessage.length());
+	                ParsedIssueDetails parsedIssueDetails = new ParsedIssueDetails(issueId, commentAfterIssueId);
+	                ids.add(parsedIssueDetails);
             	} else {
             		listener.getLogger().println("Warning: The JIRA pattern " + pattern + " doesn't define a capturing group!");
             	}
             }
-            
         }
     }
 
@@ -327,4 +375,75 @@ class Updater {
      * Debug flag.
      */
     public static boolean debug = false;
+    
+    /**
+     * A representation of a issue id + issue workflow action + optional action 
+     * field value + optional comment
+     * 
+     * @author kreyssel
+     */
+    static final class ParsedIssueDetails implements Comparable<ParsedIssueDetails> {
+    	
+    	// commit actions starts with a sharp followed by optional action 
+    	// field values and a optional comment
+    	// Example: JIRA-123 #resolve fixed my comment
+    	private final static Pattern ACTION_PATTERN = Pattern.compile("[#](\\w+)\\s?(.*)");
+    	
+    	// jira issue id in uppercase
+    	final String id;
+    	
+    	// the commit action in lowercase (resolve, close, reopen, ...)
+    	final String action;
+
+    	// a additional comment
+    	final String comment;
+    	
+    	ParsedIssueDetails(String id, String commentAfterIssueId ){
+    		
+    		this.id = StringUtils.upperCase(id);
+    		
+    		String trimmedComment = StringUtils.stripToEmpty(commentAfterIssueId);
+    		
+    		Matcher m = ACTION_PATTERN.matcher(trimmedComment);
+    		
+    		// commit actions must start with # followed by additional stuff
+    		if (m.find()) {
+    			this.action = m.groupCount() >= 1 ? StringUtils.lowerCase(StringUtils.stripToEmpty(m.group(1))) : "";
+    			this.comment = m.groupCount() >= 2 ? StringUtils.stripToEmpty(m.group(2)) : "";
+    		} else {
+    			this.action = "";
+    			this.comment = trimmedComment;
+    		}
+    	}
+    	
+    	public boolean hasAction() {
+    		return StringUtils.isNotBlank(action);
+    	}
+    	
+    	public int compareTo(ParsedIssueDetails comp) {
+    		return this.id.compareTo(comp.id);
+    	}
+    	
+    	@Override
+    	public boolean equals(Object obj) {
+    		if(obj == null)
+    			return false;
+    		
+    		if(obj instanceof ParsedIssueDetails == false)
+    			return false;
+    			
+    		return new EqualsBuilder().append(this.id, ((ParsedIssueDetails)obj).id).isEquals();
+    	}
+    	
+    	@Override
+    	public int hashCode() {
+    		return new HashCodeBuilder().append(id).toHashCode();
+    	}
+    	
+    	@Override
+    	public String toString() {
+    		return this.id;
+    	}
+    }
+
 }
